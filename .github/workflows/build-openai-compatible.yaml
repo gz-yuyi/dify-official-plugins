@@ -148,10 +148,8 @@ jobs:
           # Create output directory for packages
           mkdir -p ./packages
 
-          # Package the plugin using dify CLI
-          cd ${{ env.PLUGIN_PATH }}
-          /usr/local/bin/dify plugin package .
-          cd -
+          # Package the plugin using dify CLI (must run from outside plugin directory)
+          /usr/local/bin/dify plugin package ${{ env.PLUGIN_PATH }}
 
           # Find the generated package file
           PACKAGE_FILE=$(find ${{ env.PLUGIN_PATH }} -name "*.difypkg" -type f | head -n 1)
