@@ -143,21 +143,19 @@ jobs:
           mkdir -p ./packages
 
           # Package the plugin using dify CLI
-          cd ${{ env.PLUGIN_PATH }}
-          /usr/local/bin/dify plugin package
-          cd -
+          /usr/local/bin/dify plugin package ${{ env.PLUGIN_PATH }} -o ./packages/
 
           # Find the generated package file
-          PACKAGE_FILE=$(find ${{ env.PLUGIN_PATH }} -name "*.difypkg" -type f | head -n 1)
+          PACKAGE_FILE=$(find ./packages -name "*.difypkg" -type f | head -n 1)
 
           if [ -z "$PACKAGE_FILE" ]; then
             echo "❌ Package file not found"
             exit 1
           fi
 
-          # Move package to packages directory with a clear name
+          # Rename package file with a clear name
           PACKAGE_NAME="${AUTHOR}_${NAME}_${VERSION}.difypkg"
-          cp "$PACKAGE_FILE" "./packages/$PACKAGE_NAME"
+          mv "$PACKAGE_FILE" "./packages/$PACKAGE_NAME"
 
           echo "Package: $PACKAGE_NAME"
           echo "Size: $(du -h ./packages/$PACKAGE_NAME | cut -f1)"
