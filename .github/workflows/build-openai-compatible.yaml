@@ -150,7 +150,7 @@ jobs:
 
           # Package the plugin using dify CLI
           cd ${{ env.PLUGIN_PATH }}
-          /usr/local/bin/dify plugin package
+          /usr/local/bin/dify plugin package .
           cd -
 
           # Find the generated package file
