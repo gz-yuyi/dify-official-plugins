@@ -137,18 +137,48 @@ jobs:
           cd ${{ env.PLUGIN_PATH }}
           rm -rf .venv
 
-      - name: Test Packaging
-        if: ${{ !inputs.upload_to_marketplace }}
+      - name: Package Plugin
         run: |
-          echo "### 📦 Testing Package Build" >> $GITHUB_STEP_SUMMARY
-          echo "Running in test mode (no upload)..." | tee -a $GITHUB_STEP_SUMMARY
-          uv run python .scripts/uploader/upload-package.py \
-            -d ${{ env.PLUGIN_PATH }} \
-            -t placeholder \
-            --plugin-daemon-path /usr/local/bin/dify \
-            -u ${{ env.MARKETPLACE_BASE_URL }} \
-            -f --test
-          echo "✅ Package test successful" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Building Plugin Package" >> $GITHUB_STEP_SUMMARY
+
+          AUTHOR=$(yq '.author' ${{ env.PLUGIN_PATH }}/manifest.yaml)
+          NAME=$(yq '.name' ${{ env.PLUGIN_PATH }}/manifest.yaml)
+          VERSION=$(yq '.version' ${{ env.PLUGIN_PATH }}/manifest.yaml)
+
+          # Create output directory for packages
+          mkdir -p ./packages
+
+          # Package the plugin using dify CLI
+          cd ${{ env.PLUGIN_PATH }}
+          /usr/local/bin/dify plugin package
+          cd -
+
+          # Find the generated package file
+          PACKAGE_FILE=$(find ${{ env.PLUGIN_PATH }} -name "*.difypkg" -type f | head -n 1)
+
+          if [ -z "$PACKAGE_FILE" ]; then
+            echo "❌ Package file not found" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Move package to packages directory with a clear name
+          PACKAGE_NAME="${AUTHOR}_${NAME}_${VERSION}.difypkg"
+          cp "$PACKAGE_FILE" "./packages/$PACKAGE_NAME"
+
+          echo "**Package:** \`$PACKAGE_NAME\`" | tee -a $GITHUB_STEP_SUMMARY
+          echo "**Size:** \`$(du -h ./packages/$PACKAGE_NAME | cut -f1)\`" | tee -a $GITHUB_STEP_SUMMARY
+          echo "✅ Package built successfully" >> $GITHUB_STEP_SUMMARY
+
+          # Save package name for later steps
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+
+      - name: Upload Plugin Package as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: ./packages/${{ env.PACKAGE_NAME }}
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Upload to Marketplace
         if: ${{ inputs.upload_to_marketplace }}
@@ -179,3 +209,11 @@ jobs:
           else
             echo "ℹ️ Test build completed (not uploaded to marketplace)" >> $GITHUB_STEP_SUMMARY
           fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download Plugin Package" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The plugin package has been uploaded as an artifact." >> $GITHUB_STEP_SUMMARY
+          echo "Click on the **Artifacts** section at the bottom of this page to download the \`.difypkg\` file." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package will be available for 30 days.**" >> $GITHUB_STEP_SUMMARY
